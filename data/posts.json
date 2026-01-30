@@ -1,0 +1,50 @@
+[
+  {
+    "id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+    "title": "Building RESTful APIs Best Practices",
+    "content": "Creating a well-designed RESTful API is crucial for modern web applications. This guide covers best practices including proper HTTP methods, status codes, versioning, pagination, and error handling. We'll also discuss security considerations and documentation strategies.",
+    "author": "John Doe",
+    "tags": [
+      "api",
+      "rest",
+      "backend",
+      "best-practices"
+    ],
+    "image": "https://example.com/images/restful-api-design.jpg",
+    "categoryId": "cat-003-best-qrst-uvwx34567890",
+    "createdAt": "2026-01-22T08:00:00.000Z",
+    "updatedAt": "2026-01-22T08:00:00.000Z"
+  },
+  {
+    "id": "d4e5f6a7-b8c9-0123-def0-456789012345",
+    "title": "Introduction to JSON File Storage",
+    "content": "While databases are common for data persistence, JSON file storage can be a simple and effective solution for smaller applications or prototypes. Learn how to implement atomic writes, handle concurrent access, and maintain data integrity when using JSON files as your data store.",
+    "author": "Alice Johnson",
+    "tags": [
+      "json",
+      "storage",
+      "nodejs",
+      "tutorial"
+    ],
+    "image": "https://example.com/images/json-storage.png",
+    "categoryId": "cat-002-tuts-ijkl-mnop23456789",
+    "createdAt": "2026-01-25T16:20:00.000Z",
+    "updatedAt": "2026-01-25T16:20:00.000Z"
+  },
+  {
+    "id": "e5f6a7b8-c9d0-1234-ef01-567890123456",
+    "title": "Mastering Swagger Documentation",
+    "content": "Good API documentation is essential for developer experience. Swagger (OpenAPI) provides a standardized way to document your APIs. This post covers how to set up Swagger in NestJS, customize the documentation, and use decorators to describe your endpoints effectively.",
+    "author": "Jane Smith",
+    "tags": [
+      "swagger",
+      "openapi",
+      "documentation",
+      "nestjs"
+    ],
+    "image": "https://example.com/images/swagger-docs.jpg",
+    "categoryId": "cat-002-tuts-ijkl-mnop23456789",
+    "createdAt": "2026-01-28T11:30:00.000Z",
+    "updatedAt": "2026-01-29T14:00:00.000Z"
+  }
+]

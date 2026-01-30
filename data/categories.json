@@ -1,0 +1,37 @@
+[
+  {
+    "id": "cat-001-tech-abcd-efgh12345678",
+    "name": "Technology",
+    "description": "Posts about technology, software development, and programming",
+    "createdAt": "2026-01-10T09:00:00.000Z",
+    "updatedAt": "2026-01-10T09:00:00.000Z"
+  },
+  {
+    "id": "cat-002-tuts-ijkl-mnop23456789",
+    "name": "Tutorials",
+    "description": "Step-by-step guides and how-to articles for developers",
+    "createdAt": "2026-01-10T09:05:00.000Z",
+    "updatedAt": "2026-01-10T09:05:00.000Z"
+  },
+  {
+    "id": "cat-003-best-qrst-uvwx34567890",
+    "name": "Best Practices",
+    "description": "Industry best practices and coding standards",
+    "createdAt": "2026-01-10T09:10:00.000Z",
+    "updatedAt": "2026-01-10T09:10:00.000Z"
+  },
+  {
+    "id": "cat-004-news-yzab-cdef45678901",
+    "name": "News",
+    "description": "Latest news and updates from the tech world",
+    "createdAt": "2026-01-12T14:30:00.000Z",
+    "updatedAt": "2026-01-12T14:30:00.000Z"
+  },
+  {
+    "id": "cat-005-tips-ghij-klmn56789012",
+    "name": "Tips & Tricks",
+    "description": "Quick tips and productivity hacks for developers",
+    "createdAt": "2026-01-15T11:00:00.000Z",
+    "updatedAt": "2026-01-15T11:00:00.000Z"
+  }
+]
