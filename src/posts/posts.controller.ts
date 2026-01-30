@@ -71,7 +71,7 @@ export class PostsController {
     type: PostResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Bad Request - Invalid input data.' })
-  async create(@Body() createPostDto: CreatePostDto): Promise<PostResponseDto> {
+  async create(@Body() createPostDto: CreatePostDto) {
     this.logger.log(`POST /posts - Creating new post: ${createPostDto.title}`);
     return this.postsService.create(createPostDto);
   }
@@ -93,7 +93,7 @@ export class PostsController {
     description: 'List of posts with pagination metadata.',
     type: PaginatedPostsResponseDto,
   })
-  async findAll(@Query() filterDto: FilterPostsDto): Promise<PaginatedPostsResponseDto> {
+  async findAll(@Query() filterDto: FilterPostsDto) {
     this.logger.log(`GET /posts - Fetching posts with filters: ${JSON.stringify(filterDto)}`);
     return this.postsService.findAll(filterDto);
   }
@@ -125,7 +125,7 @@ export class PostsController {
     type: PostResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Post not found.' })
-  async findOne(@Param('id') id: string): Promise<PostResponseDto> {
+  async findOne(@Param('id') id: string) {
     this.logger.log(`GET /posts/${id} - Fetching post`);
     return this.postsService.findOne(id);
   }
@@ -146,7 +146,7 @@ export class PostsController {
   async update(
     @Param('id') id: string,
     @Body() updatePostDto: UpdatePostDto,
-  ): Promise<PostResponseDto> {
+  ) {
     this.logger.log(`PATCH /posts/${id} - Updating post`);
     return this.postsService.update(id, updatePostDto);
   }

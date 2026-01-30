@@ -74,7 +74,7 @@ export class CategoriesController {
   @ApiResponse({ status: 409, description: 'Conflict - Category name already exists.' })
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
-  ): Promise<CategoryResponseDto> {
+  ) {
     this.logger.log(`POST /categories - Creating new category: ${createCategoryDto.name}`);
     return this.categoriesService.create(createCategoryDto);
   }
@@ -93,7 +93,7 @@ export class CategoriesController {
   })
   async findAll(
     @Query() paginationDto: PaginationQueryDto,
-  ): Promise<Category[] | PaginatedResponse<Category>> {
+  ) {
     this.logger.log(`GET /categories - Fetching categories`);
     return this.categoriesService.findAll(paginationDto);
   }
@@ -109,7 +109,7 @@ export class CategoriesController {
     description: 'List of matching categories.',
     type: [CategoryResponseDto],
   })
-  async search(@Query('q') searchTerm: string): Promise<Category[]> {
+  async search(@Query('q') searchTerm: string) {
     this.logger.log(`GET /categories/search - Searching for: ${searchTerm}`);
     return this.categoriesService.search(searchTerm || '');
   }
@@ -126,7 +126,7 @@ export class CategoriesController {
     type: CategoryResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Category not found.' })
-  async findOne(@Param('id') id: string): Promise<CategoryResponseDto> {
+  async findOne(@Param('id') id: string) {
     this.logger.log(`GET /categories/${id} - Fetching category`);
     return this.categoriesService.findOne(id);
   }
@@ -148,7 +148,7 @@ export class CategoriesController {
   async update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
-  ): Promise<CategoryResponseDto> {
+  ) {
     this.logger.log(`PATCH /categories/${id} - Updating category`);
     return this.categoriesService.update(id, updateCategoryDto);
   }

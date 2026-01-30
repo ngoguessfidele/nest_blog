@@ -73,7 +73,7 @@ export class CommentsController {
   async create(
     @Param('postId') postId: string,
     @Body() createCommentDto: CreateCommentDto,
-  ): Promise<CommentResponseDto> {
+  ) {
     this.logger.log(`POST /posts/${postId}/comments - Creating new comment`);
 
     // Verify post exists
@@ -106,7 +106,7 @@ export class CommentsController {
   async findByPost(
     @Param('postId') postId: string,
     @Query() paginationDto: PaginationQueryDto,
-  ): Promise<Comment[] | PaginatedResponse<Comment>> {
+  ) {
     this.logger.log(`GET /posts/${postId}/comments - Fetching comments`);
 
     // Verify post exists
@@ -157,7 +157,7 @@ export class CommentsController {
     type: CommentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Comment not found.' })
-  async findOne(@Param('id') id: string): Promise<CommentResponseDto> {
+  async findOne(@Param('id') id: string) {
     this.logger.log(`GET /comments/${id} - Fetching comment`);
     return this.commentsService.findOne(id);
   }

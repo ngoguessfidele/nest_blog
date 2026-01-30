@@ -1,11 +1,10 @@
 import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import { JsonStorageService } from '../common/services/json-storage.service';
-import { PaginatedResponse } from '../common/interfaces';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, SortOrder } from 'mongoose';
+import { Post, PostDocument } from './schemas';
 import { CreatePostDto, UpdatePostDto, FilterPostsDto } from './dto';
-import { Post } from './entities';
+import { PaginatedResponse } from '../common/interfaces';
 import { CommentsService } from '../comments/comments.service';
-
-const COLLECTION = 'posts';
 
 /**
  * Service handling all post-related business logic
@@ -15,23 +14,15 @@ export class PostsService {
   private readonly logger = new Logger(PostsService.name);
 
   constructor(
-    private readonly jsonStorage: JsonStorageService,
+    @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @Inject(forwardRef(() => CommentsService))
     private readonly commentsService: CommentsService,
   ) {}
 
   /**
    * Create a new blog post
-   *
-   * @example
-   * const post = await postsService.create({
-   *   title: 'My First Post',
-   *   content: 'Hello World!',
-   *   author: 'John Doe',
-   *   tags: ['intro']
-   * });
    */
-  async create(createPostDto: CreatePostDto): Promise<Post> {
+  async create(createPostDto: CreatePostDto) {
     this.logger.log(`Creating new post: ${createPostDto.title}`);
 
     const postData = {
@@ -39,75 +30,62 @@ export class PostsService {
       tags: createPostDto.tags || [],
     };
 
-    return this.jsonStorage.create<Post>(COLLECTION, postData);
+    const createdPost = new this.postModel(postData);
+    return createdPost.save();
   }
 
   /**
    * Find all posts with optional filtering and pagination
    */
-  async findAll(filterDto: FilterPostsDto): Promise<PaginatedResponse<Post>> {
-    const { page = 1, pageSize = 10, search, author, tag, sortBy, sortOrder } = filterDto;
+  async findAll(filterDto: FilterPostsDto): Promise<PaginatedResponse<PostDocument>> {
+    const { page = 1, pageSize = 10, search, author, tag, sortBy, sortOrder = 'desc' } = filterDto;
 
     this.logger.log(`Finding posts - page: ${page}, pageSize: ${pageSize}, search: ${search || 'none'}`);
 
-    // Get all posts first
-    let posts = (await this.jsonStorage.findAll<Post>(COLLECTION)) as Post[];
+    // Build filter query
+    const filter: Record<string, any> = {};
 
-    // Apply search filter
     if (search) {
-      const searchLower = search.toLowerCase();
-      posts = posts.filter(
-        (post) =>
-          post.title.toLowerCase().includes(searchLower) ||
-          post.content.toLowerCase().includes(searchLower) ||
-          post.author.toLowerCase().includes(searchLower) ||
-          post.tags.some((t) => t.toLowerCase().includes(searchLower)),
-      );
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } },
+        { author: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } },
+      ];
     }
 
-    // Apply author filter
     if (author) {
-      posts = posts.filter((post) =>
-        post.author.toLowerCase().includes(author.toLowerCase()),
-      );
+      filter.author = { $regex: author, $options: 'i' };
     }
 
-    // Apply tag filter
     if (tag) {
-      posts = posts.filter((post) =>
-        post.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
-      );
+      filter.tags = { $regex: new RegExp(`^${tag}$`, 'i') };
     }
 
-    // Apply sorting
+    // Build sort options
+    const sortOptions: { [key: string]: SortOrder } = {};
     if (sortBy) {
-      posts.sort((a, b) => {
-        const aValue = a[sortBy as keyof Post];
-        const bValue = b[sortBy as keyof Post];
-
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortOrder === 'asc'
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        }
-        return 0;
-      });
+      sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
     } else {
-      // Default sort by createdAt descending
-      posts.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
+      sortOptions['createdAt'] = -1; // Default sort by createdAt descending
     }
 
-    // Apply pagination
-    const total = posts.length;
+    // Get total count
+    const total = await this.postModel.countDocuments(filter);
+
+    // Get paginated results
+    const skip = (page - 1) * pageSize;
+    const posts = await this.postModel
+      .find(filter)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(pageSize)
+      .exec();
+
     const totalPages = Math.ceil(total / pageSize);
-    const startIndex = (page - 1) * pageSize;
-    const paginatedPosts = posts.slice(startIndex, startIndex + pageSize);
 
     return {
-      data: paginatedPosts,
+      data: posts,
       meta: {
         total,
         page,
@@ -122,10 +100,10 @@ export class PostsService {
   /**
    * Find a single post by ID
    */
-  async findOne(id: string): Promise<Post> {
+  async findOne(id: string) {
     this.logger.log(`Finding post with ID: ${id}`);
 
-    const post = await this.jsonStorage.findById<Post>(COLLECTION, id);
+    const post = await this.postModel.findById(id).exec();
 
     if (!post) {
       throw new NotFoundException(`Post with ID "${id}" not found`);
@@ -137,14 +115,12 @@ export class PostsService {
   /**
    * Update an existing post
    */
-  async update(id: string, updatePostDto: UpdatePostDto): Promise<Post> {
+  async update(id: string, updatePostDto: UpdatePostDto) {
     this.logger.log(`Updating post with ID: ${id}`);
 
-    const updatedPost = await this.jsonStorage.update<Post>(
-      COLLECTION,
-      id,
-      updatePostDto,
-    );
+    const updatedPost = await this.postModel
+      .findByIdAndUpdate(id, updatePostDto, { new: true })
+      .exec();
 
     if (!updatedPost) {
       throw new NotFoundException(`Post with ID "${id}" not found`);
@@ -159,7 +135,7 @@ export class PostsService {
   async remove(id: string): Promise<void> {
     this.logger.log(`Deleting post with ID: ${id}`);
 
-    const deleted = await this.jsonStorage.delete<Post>(COLLECTION, id);
+    const deleted = await this.postModel.findByIdAndDelete(id).exec();
 
     if (!deleted) {
       throw new NotFoundException(`Post with ID "${id}" not found`);
@@ -174,20 +150,14 @@ export class PostsService {
    * Get all unique tags from posts
    */
   async getAllTags(): Promise<string[]> {
-    const posts = (await this.jsonStorage.findAll<Post>(COLLECTION)) as Post[];
-    const tagsSet = new Set<string>();
-
-    posts.forEach((post) => {
-      post.tags.forEach((tag) => tagsSet.add(tag));
-    });
-
-    return Array.from(tagsSet).sort();
+    const result = await this.postModel.distinct('tags').exec();
+    return result.sort();
   }
 
   /**
    * Get posts by author
    */
-  async findByAuthor(author: string): Promise<Post[]> {
-    return this.jsonStorage.findByField<Post>(COLLECTION, 'author', author);
+  async findByAuthor(author: string) {
+    return this.postModel.find({ author: { $regex: author, $options: 'i' } }).exec();
   }
 }

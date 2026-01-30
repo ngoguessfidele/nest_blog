@@ -1,11 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { JsonStorageService } from '../common/services/json-storage.service';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { Comment, CommentDocument } from './schemas';
 import { PaginatedResponse } from '../common/interfaces';
 import { PaginationQueryDto } from '../common/dto';
 import { CreateCommentInternalDto } from './dto';
-import { Comment } from './entities';
-
-const COLLECTION = 'comments';
 
 /**
  * Service handling all comment-related business logic
@@ -14,24 +13,25 @@ const COLLECTION = 'comments';
 export class CommentsService {
   private readonly logger = new Logger(CommentsService.name);
 
-  constructor(private readonly jsonStorage: JsonStorageService) {}
+  constructor(
+    @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
+  ) {}
 
   /**
    * Create a new comment for a post
-   *
-   * @example
-   * const comment = await commentsService.create({
-   *   postId: '123',
-   *   author: 'Jane Doe',
-   *   content: 'Great post!'
-   * });
    */
-  async create(createCommentDto: CreateCommentInternalDto): Promise<Comment> {
+  async create(createCommentDto: CreateCommentInternalDto) {
     this.logger.log(
       `Creating new comment for post: ${createCommentDto.postId}`,
     );
 
-    return this.jsonStorage.create<Comment>(COLLECTION, createCommentDto);
+    const commentData = {
+      ...createCommentDto,
+      postId: new Types.ObjectId(createCommentDto.postId),
+    };
+
+    const createdComment = new this.commentModel(commentData);
+    return createdComment.save();
   }
 
   /**
@@ -40,34 +40,33 @@ export class CommentsService {
   async findByPostId(
     postId: string,
     paginationDto?: PaginationQueryDto,
-  ): Promise<Comment[] | PaginatedResponse<Comment>> {
+  ) {
     this.logger.log(`Finding comments for post: ${postId}`);
 
-    // Get all comments for this post
-    let comments = await this.jsonStorage.findByField<Comment>(
-      COLLECTION,
-      'postId',
-      postId,
-    );
-
-    // Sort by createdAt descending (newest first)
-    comments.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    const filter = { postId: new Types.ObjectId(postId) };
 
     if (!paginationDto || (!paginationDto.page && !paginationDto.pageSize)) {
-      return comments;
+      return this.commentModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .exec();
     }
 
     const { page = 1, pageSize = 10 } = paginationDto;
-    const total = comments.length;
+    const total = await this.commentModel.countDocuments(filter);
+    const skip = (page - 1) * pageSize;
+
+    const comments = await this.commentModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize)
+      .exec();
+
     const totalPages = Math.ceil(total / pageSize);
-    const startIndex = (page - 1) * pageSize;
-    const paginatedComments = comments.slice(startIndex, startIndex + pageSize);
 
     return {
-      data: paginatedComments,
+      data: comments,
       meta: {
         total,
         page,
@@ -82,10 +81,10 @@ export class CommentsService {
   /**
    * Find a single comment by ID
    */
-  async findOne(id: string): Promise<Comment> {
+  async findOne(id: string) {
     this.logger.log(`Finding comment with ID: ${id}`);
 
-    const comment = await this.jsonStorage.findById<Comment>(COLLECTION, id);
+    const comment = await this.commentModel.findById(id).exec();
 
     if (!comment) {
       throw new NotFoundException(`Comment with ID "${id}" not found`);
@@ -100,7 +99,7 @@ export class CommentsService {
   async remove(id: string): Promise<void> {
     this.logger.log(`Deleting comment with ID: ${id}`);
 
-    const deleted = await this.jsonStorage.delete<Comment>(COLLECTION, id);
+    const deleted = await this.commentModel.findByIdAndDelete(id).exec();
 
     if (!deleted) {
       throw new NotFoundException(`Comment with ID "${id}" not found`);
@@ -113,18 +112,19 @@ export class CommentsService {
   async removeByPostId(postId: string): Promise<number> {
     this.logger.log(`Deleting all comments for post: ${postId}`);
 
-    return this.jsonStorage.deleteByField<Comment>(COLLECTION, 'postId', postId);
+    const result = await this.commentModel
+      .deleteMany({ postId: new Types.ObjectId(postId) })
+      .exec();
+
+    return result.deletedCount || 0;
   }
 
   /**
    * Count comments for a specific post
    */
   async countByPostId(postId: string): Promise<number> {
-    const comments = await this.jsonStorage.findByField<Comment>(
-      COLLECTION,
-      'postId',
-      postId,
-    );
-    return comments.length;
+    return this.commentModel
+      .countDocuments({ postId: new Types.ObjectId(postId) })
+      .exec();
   }
 }

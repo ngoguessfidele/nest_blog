@@ -4,13 +4,12 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { JsonStorageService } from '../common/services/json-storage.service';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Category, CategoryDocument } from './schemas';
 import { PaginatedResponse } from '../common/interfaces';
 import { PaginationQueryDto } from '../common/dto';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto';
-import { Category } from './entities';
-
-const COLLECTION = 'categories';
 
 /**
  * Service handling all category-related business logic
@@ -19,18 +18,14 @@ const COLLECTION = 'categories';
 export class CategoriesService {
   private readonly logger = new Logger(CategoriesService.name);
 
-  constructor(private readonly jsonStorage: JsonStorageService) {}
+  constructor(
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+  ) {}
 
   /**
    * Create a new category
-   *
-   * @example
-   * const category = await categoriesService.create({
-   *   name: 'Technology',
-   *   description: 'Tech-related posts'
-   * });
    */
-  async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
+  async create(createCategoryDto: CreateCategoryDto) {
     this.logger.log(`Creating new category: ${createCategoryDto.name}`);
 
     // Check if category with same name exists
@@ -46,7 +41,8 @@ export class CategoriesService {
       description: createCategoryDto.description || '',
     };
 
-    return this.jsonStorage.create<Category>(COLLECTION, categoryData);
+    const createdCategory = new this.categoryModel(categoryData);
+    return createdCategory.save();
   }
 
   /**
@@ -54,27 +50,46 @@ export class CategoriesService {
    */
   async findAll(
     paginationDto?: PaginationQueryDto,
-  ): Promise<Category[] | PaginatedResponse<Category>> {
+  ) {
     this.logger.log('Finding all categories');
 
     if (!paginationDto || (!paginationDto.page && !paginationDto.pageSize)) {
-      return this.jsonStorage.findAll<Category>(COLLECTION) as Promise<Category[]>;
+      return this.categoryModel.find().sort({ name: 1 }).exec();
     }
 
     const { page = 1, pageSize = 10 } = paginationDto;
-    return this.jsonStorage.findAll<Category>(COLLECTION, {
-      page,
-      pageSize,
-    }) as Promise<PaginatedResponse<Category>>;
+    const total = await this.categoryModel.countDocuments();
+    const skip = (page - 1) * pageSize;
+
+    const categories = await this.categoryModel
+      .find()
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(pageSize)
+      .exec();
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: categories,
+      meta: {
+        total,
+        page,
+        pageSize,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   /**
    * Find a single category by ID
    */
-  async findOne(id: string): Promise<Category> {
+  async findOne(id: string) {
     this.logger.log(`Finding category with ID: ${id}`);
 
-    const category = await this.jsonStorage.findById<Category>(COLLECTION, id);
+    const category = await this.categoryModel.findById(id).exec();
 
     if (!category) {
       throw new NotFoundException(`Category with ID "${id}" not found`);
@@ -86,16 +101,10 @@ export class CategoriesService {
   /**
    * Find a category by name
    */
-  async findByName(name: string): Promise<Category | null> {
-    const categories = (await this.jsonStorage.findAll<Category>(
-      COLLECTION,
-    )) as Category[];
-
-    return (
-      categories.find(
-        (cat) => cat.name.toLowerCase() === name.toLowerCase(),
-      ) || null
-    );
+  async findByName(name: string) {
+    return this.categoryModel
+      .findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } })
+      .exec();
   }
 
   /**
@@ -104,24 +113,22 @@ export class CategoriesService {
   async update(
     id: string,
     updateCategoryDto: UpdateCategoryDto,
-  ): Promise<Category> {
+  ) {
     this.logger.log(`Updating category with ID: ${id}`);
 
     // Check if trying to update name to an existing name
     if (updateCategoryDto.name) {
       const existing = await this.findByName(updateCategoryDto.name);
-      if (existing && existing.id !== id) {
+      if (existing && existing._id.toString() !== id) {
         throw new ConflictException(
           `Category with name "${updateCategoryDto.name}" already exists`,
         );
       }
     }
 
-    const updatedCategory = await this.jsonStorage.update<Category>(
-      COLLECTION,
-      id,
-      updateCategoryDto,
-    );
+    const updatedCategory = await this.categoryModel
+      .findByIdAndUpdate(id, updateCategoryDto, { new: true })
+      .exec();
 
     if (!updatedCategory) {
       throw new NotFoundException(`Category with ID "${id}" not found`);
@@ -136,7 +143,7 @@ export class CategoriesService {
   async remove(id: string): Promise<void> {
     this.logger.log(`Deleting category with ID: ${id}`);
 
-    const deleted = await this.jsonStorage.delete<Category>(COLLECTION, id);
+    const deleted = await this.categoryModel.findByIdAndDelete(id).exec();
 
     if (!deleted) {
       throw new NotFoundException(`Category with ID "${id}" not found`);
@@ -146,10 +153,14 @@ export class CategoriesService {
   /**
    * Search categories by name
    */
-  async search(searchTerm: string): Promise<Category[]> {
-    return this.jsonStorage.search<Category>(COLLECTION, searchTerm, [
-      'name',
-      'description',
-    ]) as Promise<Category[]>;
+  async search(searchTerm: string) {
+    return this.categoryModel
+      .find({
+        $or: [
+          { name: { $regex: searchTerm, $options: 'i' } },
+          { description: { $regex: searchTerm, $options: 'i' } },
+        ],
+      })
+      .exec();
   }
 }
